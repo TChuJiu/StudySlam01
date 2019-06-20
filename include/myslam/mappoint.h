@@ -34,13 +34,13 @@ public:
     static unsigned long factory_id_;    // factory id   为路标点计数用
     bool        good_;      // wheter a good point 
     Vector3d    pos_;       // Position in world
-    Vector3d    norm_;      // Normal of viewing direction  方向？？
+    Vector3d    norm_;      // Normal of viewing direction  归一化坐标 大小为一，代表方向
     Mat         descriptor_; // Descriptor for matching 
     
     list<Frame*>    observed_frames_;   // key-frames that can observe this point 
     
-    int         matched_times_;     // being an inliner in pose estimation
-    int         visible_times_;     // being visible in current frame 
+    int         matched_times_;     // being an inliner in pose estimation 位姿使用的次数
+    int         visible_times_;     // being visible in current frame  路标点使用的次数
     
     MapPoint();
     MapPoint( 

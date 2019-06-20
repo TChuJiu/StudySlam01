@@ -47,12 +47,12 @@ public:
     vector<cv::KeyPoint>    keypoints_curr_;    // keypoints in current frame
     Mat                     descriptors_curr_;  // descriptor in current frame 
     
-    cv::FlannBasedMatcher   matcher_flann_;     // flann matcher
+    cv::FlannBasedMatcher   matcher_flann_;     // flann matcher    FlannBasedMatcher:快速最近邻逼近搜索函数匹配算法  BFMatcher:尝试所有可能的匹配，从而使得它总能够找到最佳匹配。
     vector<MapPoint::Ptr>   match_3dpts_;       // matched 3d points        路标点 
     vector<int>             match_2dkp_index_;  // matched 2d pixels (index of kp_curr)  路标点对应像素点
    
     SE3 T_c_w_estimated_;    // the estimated pose of current frame 
-    int num_inliers_;        // number of inlier features in icp
+    int num_inliers_;        // number of inlier features in icp  ICP中内联特征点
     int num_lost_;           // number of lost times
     
     // parameters 
@@ -74,19 +74,28 @@ public: // functions
     
 protected:  
     // inner operation 
-    void extractKeyPoints();
+    //提取关键点
+    void extractKeyPoints(); 
+    //orb计算描述子   
     void computeDescriptors(); 
+    //orb特征点匹配
     void featureMatching();
+    //PnP位姿估计
     void poseEstimationPnP(); 
+    //优化地图
     void optimizeMap();
     
+    //向地图中添加关键帧
     void addKeyFrame();
+    //向地图中添加路标点
     void addMapPoints();
+    //检查位姿估计
     bool checkEstimatedPose(); 
+    //检查关键帧
     bool checkKeyFrame();
     
+    // ??
     double getViewAngle( Frame::Ptr frame, MapPoint::Ptr point );
-    
 };
 }
 

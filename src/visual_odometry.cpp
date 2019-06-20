@@ -59,7 +59,7 @@ bool VisualOdometry::addFrame ( Frame::Ptr frame )
         state_ = OK;
         curr_ = ref_ = frame;
         // extract features from first frame and add them into map
-        extractKeyPoints();
+        extractKeyPoints();     //初始化时，把首帧所有特征点都加入地图中
         computeDescriptors();
         addKeyFrame();      // the first frame is a key-frame
         break;
@@ -77,7 +77,7 @@ bool VisualOdometry::addFrame ( Frame::Ptr frame )
             curr_->T_c_w_ = T_c_w_estimated_;
             optimizeMap();
             num_lost_ = 0;
-            if ( checkKeyFrame() == true ) // is a key-frame
+            if ( checkKeyFrame() == true ) // is a key-frame  简单的只判断距离 
             {
                 addKeyFrame();
             }
@@ -106,14 +106,14 @@ bool VisualOdometry::addFrame ( Frame::Ptr frame )
 void VisualOdometry::extractKeyPoints()
 {
     boost::timer timer;
-    orb_->detect ( curr_->color_, keypoints_curr_ );
+    orb_->detect ( curr_->color_, keypoints_curr_ ); //orb 检测特征点
     cout<<"extract keypoints cost time: "<<timer.elapsed() <<endl;
 }
 
-void VisualOdometry::computeDescriptors()
+void VisualOdometry::computeDescriptors() //orb计算描述子
 {
     boost::timer timer;
-    orb_->compute ( curr_->color_, keypoints_curr_, descriptors_curr_ );
+    orb_->compute ( curr_->color_, keypoints_curr_, descriptors_curr_ );   //orb计算描述子
     cout<<"descriptor computation cost time: "<<timer.elapsed() <<endl;
 }
 
@@ -122,9 +122,9 @@ void VisualOdometry::featureMatching()
     boost::timer timer;
     vector<cv::DMatch> matches;
     // select the candidates in map 
-    Mat desp_map;
-    vector<MapPoint::Ptr> candidate;
-    for ( auto& allpoints: map_->map_points_ )
+    Mat desp_map;   // 描述子集合
+    vector<MapPoint::Ptr> candidate;    //使用的路标点
+    for ( auto& allpoints: map_->map_points_ ) //随着地图数据增加，搜索用时也越来越长
     {
         MapPoint::Ptr& p = allpoints.second;
         // check if p in curr frame image 
@@ -150,7 +150,7 @@ void VisualOdometry::featureMatching()
     match_2dkp_index_.clear();
     for ( cv::DMatch& m : matches )
     {
-        if ( m.distance < max<float> ( min_dis*match_ratio_, 30.0 ) )
+        if ( m.distance < max<float> ( min_dis*match_ratio_, 30.0 ) ) //重要 匹配距离判断
         {
             match_3dpts_.push_back( candidate[m.queryIdx] );
             match_2dkp_index_.push_back( m.trainIdx );
@@ -232,7 +232,7 @@ void VisualOdometry::poseEstimationPnP()
     cout<<"T_c_w_estimated_: "<<endl<<T_c_w_estimated_.matrix()<<endl;
 }
 
-bool VisualOdometry::checkEstimatedPose()
+bool VisualOdometry::checkEstimatedPose()   //运动位姿 不能太大
 {
     // check if the estimated pose is good
     if ( num_inliers_ < min_inliers_ )
@@ -245,19 +245,19 @@ bool VisualOdometry::checkEstimatedPose()
     Sophus::Vector6d d = T_r_c.log();
     if ( d.norm() > 5.0 )
     {
-        cout<<"reject because motion is too large: "<<d.norm() <<endl;
+        cout<<"reject because motion is too large: "<<d.norm() <<endl; 
         return false;
     }
     return true;
 }
 
-bool VisualOdometry::checkKeyFrame()
+bool VisualOdometry::checkKeyFrame() //检查符合不符合关键帧
 {
     SE3 T_r_c = ref_->T_c_w_ * T_c_w_estimated_.inverse();
     Sophus::Vector6d d = T_r_c.log();
-    Vector3d trans = d.head<3>();
-    Vector3d rot = d.tail<3>();
-    if ( rot.norm() >key_frame_min_rot || trans.norm() >key_frame_min_trans )
+    Vector3d trans = d.head<3>();// 平移    
+    Vector3d rot = d.tail<3>(); //旋转  norm() 取摸
+    if ( rot.norm() >key_frame_min_rot || trans.norm() >key_frame_min_trans ) //和上一个关键帧之间的距离满足一定条件，列为关键帧
         return true;
     return false;
 }
@@ -298,7 +298,7 @@ void VisualOdometry::addMapPoints()
     {
         if ( matched[i] == true )   
             continue;
-        double d = ref_->findDepth ( keypoints_curr_[i] );
+        double d = ref_->findDepth ( keypoints_curr_[i] ); //只处理非匹配关键点
         if ( d<0 )  
             continue;
         Vector3d p_world = ref_->camera_->pixel2world (
@@ -317,21 +317,21 @@ void VisualOdometry::addMapPoints()
 void VisualOdometry::optimizeMap()
 {
     // remove the hardly seen and no visible points 
-    for ( auto iter = map_->map_points_.begin(); iter != map_->map_points_.end(); )
+    for ( auto iter = map_->map_points_.begin(); iter != map_->map_points_.end(); ) // 这是什么用法？？？
     {
-        if ( !curr_->isInFrame(iter->second->pos_) )
+        if ( !curr_->isInFrame(iter->second->pos_) )//不在该帧上的点，不要
         {
             iter = map_->map_points_.erase(iter);
             continue;
         }
-        float match_ratio = float(iter->second->matched_times_)/iter->second->visible_times_;
+        float match_ratio = float(iter->second->matched_times_)/iter->second->visible_times_;//该点（路标点）被使用次数过少，不用
         if ( match_ratio < map_point_erase_ratio_ )
         {
             iter = map_->map_points_.erase(iter);
             continue;
         }
         
-        double angle = getViewAngle( curr_, iter->second );
+        double angle = getViewAngle( curr_, iter->second ); //超过一定角度，Mappoint不要
         if ( angle > M_PI/6. )
         {
             iter = map_->map_points_.erase(iter);
@@ -356,7 +356,7 @@ void VisualOdometry::optimizeMap()
     cout<<"map points: "<<map_->map_points_.size()<<endl;
 }
 
-double VisualOdometry::getViewAngle ( Frame::Ptr frame, MapPoint::Ptr point )
+double VisualOdometry::getViewAngle ( Frame::Ptr frame, MapPoint::Ptr point )// 给定该帧和路标点 获取相对该帧的角度
 {
     Vector3d n = point->pos_ - frame->getCamCenter();
     n.normalize();
