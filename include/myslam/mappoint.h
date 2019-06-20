@@ -27,14 +27,14 @@ namespace myslam
     
 class Frame;
 class MapPoint
-{
+{// MapPoint 地图点： Ptr 指向该类对象指针； observed_frames_ 存储能观察到路标点的所有关键帧； pos_ 世界坐标点； descriptor_ 描述； norm_ ？？
 public:
     typedef shared_ptr<MapPoint> Ptr;
-    unsigned long      id_;        // ID
-    static unsigned long factory_id_;    // factory id
+    unsigned long      id_;              // ID  构建路标点id
+    static unsigned long factory_id_;    // factory id   为路标点计数用
     bool        good_;      // wheter a good point 
     Vector3d    pos_;       // Position in world
-    Vector3d    norm_;      // Normal of viewing direction 
+    Vector3d    norm_;      // Normal of viewing direction  方向？？
     Mat         descriptor_; // Descriptor for matching 
     
     list<Frame*>    observed_frames_;   // key-frames that can observe this point 

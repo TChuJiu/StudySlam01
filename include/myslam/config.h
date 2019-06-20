@@ -37,7 +37,7 @@ public:
     // set a new config file 
     static void setParameterFile( const std::string& filename ); 
     
-    // access the parameter values
+    // access the parameter values 键值型内容，输入建名，返回对应的值
     template< typename T >
     static T get( const std::string& key )
     {

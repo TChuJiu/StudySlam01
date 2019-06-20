@@ -27,10 +27,10 @@ namespace myslam
 
 // Pinhole RGBD camera model
 class Camera
-{
+{ //Cmaera 图像属性加功能的类： Camera类对象的指针； 相机的内参k； depth_scale_ 相机的比例因子； 图像各种坐标系下的转换
 public:
     typedef std::shared_ptr<Camera> Ptr;
-    float   fx_, fy_, cx_, cy_, depth_scale_;
+    float   fx_, fy_, cx_, cy_, depth_scale_ ;
 
     Camera();
     Camera ( float fx, float fy, float cx, float cy, float depth_scale=0 ) :

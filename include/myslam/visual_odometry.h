@@ -32,15 +32,15 @@ class VisualOdometry
 public:
     typedef shared_ptr<VisualOdometry> Ptr;
     enum VOState {
-        INITIALIZING=-1,
-        OK=0,
-        LOST
+        INITIALIZING=-1,    //里程计初始化
+        OK=0,               //正常跟踪
+        LOST                //里程计丢失
     };
     
     VOState     state_;     // current VO status
     Map::Ptr    map_;       // map with all frames and map points
     
-    Frame::Ptr  ref_;       // reference key-frame 
+    Frame::Ptr  ref_;       // reference key-frame 参考关键帧 key-frame
     Frame::Ptr  curr_;      // current frame 
     
     cv::Ptr<cv::ORB> orb_;  // orb detector and computer 
@@ -48,8 +48,8 @@ public:
     Mat                     descriptors_curr_;  // descriptor in current frame 
     
     cv::FlannBasedMatcher   matcher_flann_;     // flann matcher
-    vector<MapPoint::Ptr>   match_3dpts_;       // matched 3d points 
-    vector<int>             match_2dkp_index_;  // matched 2d pixels (index of kp_curr)
+    vector<MapPoint::Ptr>   match_3dpts_;       // matched 3d points        路标点 
+    vector<int>             match_2dkp_index_;  // matched 2d pixels (index of kp_curr)  路标点对应像素点
    
     SE3 T_c_w_estimated_;    // the estimated pose of current frame 
     int num_inliers_;        // number of inlier features in icp

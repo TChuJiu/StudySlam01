@@ -27,9 +27,9 @@
 namespace myslam
 {
 class Map
-{
+{//Map 存储一系列关键帧和地图点 Prt该类对象指针； map_points_ 地图点； keyframes_ 关键帧；
 public:
-    typedef shared_ptr<Map> Ptr;
+    typedef shared_ptr<Map> Ptr; 
     unordered_map<unsigned long, MapPoint::Ptr >  map_points_;        // all landmarks
     unordered_map<unsigned long, Frame::Ptr >     keyframes_;         // all key-frames
 

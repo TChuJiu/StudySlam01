@@ -29,9 +29,11 @@ namespace myslam
 // forward declare 
 class MapPoint;
 class Frame
-{
+{   //Frame 帧： Ptr 指向该类对象(帧属性集合)的指针； id_ 该帧图像的id； 
+    //time_stamp_ 该帧的时间戳； T_c_w 该帧下世界坐标系到相机坐标系下的转换矩阵T； Camera::Ptr 存储图像属性及坐标转换的指针（每帧）； 
+    //Mat 存储图像 和 深度图的数据； is_key_frame_ 判断是否关键帧；
 public:
-    typedef std::shared_ptr<Frame> Ptr;
+    typedef std::shared_ptr<Frame> Ptr;         //shared_ptr智能指针  
     unsigned long                  id_;         // id of this frame
     double                         time_stamp_; // when it is recorded
     SE3                            T_c_w_;      // transform from world to camera
