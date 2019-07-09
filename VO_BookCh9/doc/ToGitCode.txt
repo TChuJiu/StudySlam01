@@ -15,3 +15,5 @@
 git reset HEAD <文件>..." 以取消暂存
 git add <文件>..." 以包含要提交的内容
 
+
+git config credential.helper store  保存密码
