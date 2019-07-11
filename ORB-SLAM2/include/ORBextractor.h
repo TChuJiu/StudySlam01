@@ -92,7 +92,7 @@ protected:
                                            const int &maxX, const int &minY, const int &maxY, const int &nFeatures, const int &level);
 
     void ComputeKeyPointsOld(std::vector<std::vector<cv::KeyPoint> >& allKeypoints);
-    std::vector<cv::Point> pattern;
+    std::vector<cv::Point> pattern; // 描述子规则点集合
 
     int nfeatures;
     double scaleFactor;
