@@ -95,8 +95,12 @@ static float IC_Angle(const Mat& image, Point2f pt,  const vector<int> & u_max)
     for (int v = 1; v <= HALF_PATCH_SIZE; ++v)
     {
         // Proceed over the two lines
+        // u_max[v]取值  加速偏心距计算？？？ 不是 实际上计算偏心距的邻域是个圆啊，所以 这是圆形范围的近似
+        // umax_0: 15	umax_1: 15	umax_2: 15	umax_3: 15	umax_4: 14	umax_5: 14	
+        // umax_6: 14	umax_7: 13	umax_8: 13	umax_9: 12	umax_10: 11	umax_11: 10	
+        // umax_12: 9	umax_13: 8	umax_14: 6	umax_15: 3	
         int v_sum = 0;
-        int d = u_max[v];
+        int d = u_max[v]; // ？？
         for (int u = -d; u <= d; ++u)
         {
             int val_plus = center[u + v*step], val_minus = center[u - v*step]; //同时取中心点的上下两行
@@ -473,13 +477,14 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     //用于计算特征方向时，每个v坐标对应最大的u坐标
     umax.resize(HALF_PATCH_SIZE + 1); // 16
 
-    int v, v0, vmax = cvFloor(HALF_PATCH_SIZE * sqrt(2.f) / 2 + 1); //31.0
+    int v, v0, vmax = cvFloor(HALF_PATCH_SIZE * sqrt(2.f) / 2 + 1); //vmax = 11
     int vmin = cvCeil(HALF_PATCH_SIZE * sqrt(2.f) / 2); // 30.0
     const double hp2 = HALF_PATCH_SIZE*HALF_PATCH_SIZE; // 15x15
      // 将v坐标划分为两部分进行计算，主要为了确保计算特征主方向的时候，x,y方向对称
     for (v = 0; v <= vmax; ++v)     
-        umax[v] = cvRound(sqrt(hp2 - v * v));   // 0-31 //利用勾股定理计算
-
+        umax[v] = cvRound(sqrt(hp2 - v * v));   // 0-31 //计算圆型邻域的范围  圆形公式！！！
+        // umax_0: 15  umax_1: 15  umax_2: 15  umax_3: 15  umax_4: 14  umax_5: 14 
+        // umax_6: 14  umax_7: 13  umax_8: 13  umax_9: 12  umax_10: 11 umax_11: 10
     // Make sure we are symmetric  确保对称 
     // V坐标的第二部分
     for (v = HALF_PATCH_SIZE, v0 = 0; v >= vmin; --v)
@@ -489,6 +494,9 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
         umax[v] = v0;
         ++v0;
     }
+    // umax_0: 15	umax_1: 15	umax_2: 15	umax_3: 15	umax_4: 14	umax_5: 14	
+    // umax_6: 14	umax_7: 13	umax_8: 13	umax_9: 12	umax_10: 11	umax_11: 10	
+    // umax_12: 9	umax_13: 8	umax_14: 6	umax_15: 3	
 }
 
 static void computeOrientation(const Mat& image, vector<KeyPoint>& keypoints, const vector<int>& umax)
@@ -601,27 +609,47 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
     }
 
     //Associate points to childs
+    //要一直记得vToDistributeKeys变量中存储的是该层图像中提取的特征点
+    //遍历在该层图像上提取的所有特征点
     for(size_t i=0;i<vToDistributeKeys.size();i++)
     {
         const cv::KeyPoint &kp = vToDistributeKeys[i];
         vpIniNodes[kp.pt.x/hX]->vKeys.push_back(kp);
-    }
+        // 将该层所有特征点 分配到相应的结点中
+        // 结点本身 ExtractorNode 包含五种属性：UL，UR， BL， BR，vKeys;（还有 bNoMore 和 lit）
+        // 到这里明白了这个四叉树的玩法了
+        // 用list 双向链表存放四叉树结点本身
+        // 用vector 动态数组存放 每个list中结点的首地址vpIniNodes[i] = &lNodes.back();
+        // list是一个双向链表容器，可高效地进行插入删除元素
+        // vector是将元素置于一个动态数组中，vector可以随机存取元素，在头尾插入数据快，但是从中            
+        // 间插入数据很慢
+        // 正是利用了list和vector的特点，使得我们即可以快速高效的插入删除结点，又可以随机的存取
+        // vpIniNodes 可以通过[ ] 快速索引结点的地址，其数组数值便是结点的地址等价于lNodes[ ]
+        // 根据 kp.pt.x 在 x方向上的hX的分布，向相应的结点添加 keypoint
+        // 如何将这个list和vector联系起来共同维护这个四叉树呢？
+    } 
 
     list<ExtractorNode>::iterator lit = lNodes.begin();
 
     while(lit!=lNodes.end())
-    {
+    { 
+        // 如果判断在一个结点里面只有一个特征点
         if(lit->vKeys.size()==1)
         {
+            // 将 bNomore = true 不再分割
             lit->bNoMore=true;
             lit++;
         }
+        // 如果结点的 keys为空， 就删除该结点
         else if(lit->vKeys.empty())
             lit = lNodes.erase(lit);
         else
             lit++;
     }
-
+    // lNodes中的结点和 vpIniNodes中的结点指针是同步的，只有在 vpIniNodes中存储的结点中存储了 
+    // 特征点，才能根据特征点的数目来决定如何处理这个结点
+    // 那如果在lNodes中删除一个没有特征点的结点，那么在 vpIniNodes中对应的这个地址也会被销毁吗
+ 
     bool bFinish = false;
 
     int iteration = 0;
@@ -643,6 +671,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
         vSizeAndPointerToNode.clear();
 
         // 将目前的子区域经行划分
+        // 中止条件 四叉树一层中分割完毕
         while(lit!=lNodes.end())
         {
             if(lit->bNoMore)
@@ -662,9 +691,13 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
                 {
                     lNodes.push_front(n1);                    
                     if(n1.vKeys.size()>1)
-                    {
+                    {   
+                        // 如果这个心结点中被分配的特征点的个数大于1，那么接下来要被分割的结点的数目
+                        // 就得加1了    
                         nToExpand++;
+                        // 变量vSizeAndPointerToNode中存储的是每一个结点的地址以及该结点中被分配到的特征点的个数。              
                         vSizeAndPointerToNode.push_back(make_pair(n1.vKeys.size(),&lNodes.front()));
+                        //每插入一个结点让该结点记录自己的位置
                         lNodes.front().lit = lNodes.begin();
                     }
                 }
@@ -699,30 +732,39 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
                     }
                 }
 
-                lit=lNodes.erase(lit);
+                lit=lNodes.erase(lit);  // 删除当前的 母结点，返回下一个结点
                 continue;
             }
         }       
 
         // Finish if there are more nodes than required features
         // or all nodes contain just one point
+        // 当创建的结点的数目比要求的特征点还要多或者，每个结点中都只有一个特征点的时候就停止分割
         if((int)lNodes.size()>=N || (int)lNodes.size()==prevSize)
         {
             bFinish = true;
         }
         // 当再划分之后所有的Node数大于要求数目时
-        else if(((int)lNodes.size()+nToExpand*3)>N)
+        // 如果现在生成的结点全部进行分割后生成的结点满足大于需求的特征点的数目，但是不继续分割又
+        // 不能满足大于N的要求时
+        // 这里为什么是乘以三，这里也正好印证了上面所说的当一个结点被分割成四个新的结点时，
+        // 这个结点时要被删除的，其实总的结点时增加了三个
+        else if(((int)lNodes.size()+nToExpand*3)>N) // 预测 nToExpand 必然是可分的 所有分割之后，生成4个子点 减去一个母点
         {
 
             while(!bFinish)
             {
 
                 prevSize = lNodes.size();
-
+                // 这里将已经创建好的结点放到一个新的容器中
                 vector<pair<int,ExtractorNode*> > vPrevSizeAndPointerToNode = vSizeAndPointerToNode;
                 vSizeAndPointerToNode.clear();
-
-                // 对需要划分的部分进行排序, 即对兴趣点数较多的区域进行划分
+                //根据结点中被分配都的特征点的数目对结点进行排序
+                //这里为何要排序，我们想要的结果是想让尽可能多的特征点均匀的分布在图像上
+                //如果前面的特征分布相对均匀的结点中的特征点数目已经达到了指标那么就可以将
+                //后面那些分布密集的特征点去掉了。
+                // 对需要划分的部分进行排序, 即对兴趣点数 较多 的区域 优先进行划分 
+                // sort 升序排列对给定区间所有元素进行排序
                 sort(vPrevSizeAndPointerToNode.begin(),vPrevSizeAndPointerToNode.end());
                 for(int j=vPrevSizeAndPointerToNode.size()-1;j>=0;j--)
                 {
@@ -768,7 +810,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
                     }
 
                     lNodes.erase(vPrevSizeAndPointerToNode[j].second->lit);
-
+                    //如果多有的结点还没有被分割完就已经达到了大于N的要求那么就直接跳出循环
                     if((int)lNodes.size()>=N)
                         break;
                 }
@@ -799,7 +841,7 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
             }
         }
 
-        vResultKeys.push_back(*pKP);
+        vResultKeys.push_back(*pKP); // 每个lNodes只保留将响应值最大的 加入vResultKeys  与之对应
     }
 
     return vResultKeys;
@@ -808,32 +850,34 @@ vector<cv::KeyPoint> ORBextractor::DistributeOctTree(const vector<cv::KeyPoint>&
 void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoints)
 {
     allKeypoints.resize(nlevels);
-
+    //设定每个格子的大小
     const float W = 30;
 
     // 对每一层图像做处理
     for (int level = 0; level < nlevels; ++level)
     {
-        const int minBorderX = EDGE_THRESHOLD-3;
-        const int minBorderY = minBorderX;
+        // 定义 结点的最小界限和最大界限
+        const int minBorderX = EDGE_THRESHOLD-3; // 16
+        const int minBorderY = minBorderX;       // 16
         const int maxBorderX = mvImagePyramid[level].cols-EDGE_THRESHOLD+3;
         const int maxBorderY = mvImagePyramid[level].rows-EDGE_THRESHOLD+3;
-
+        // 用于分配的关键点
         vector<cv::KeyPoint> vToDistributeKeys;
         vToDistributeKeys.reserve(nfeatures*10);
 
         const float width = (maxBorderX-minBorderX);
         const float height = (maxBorderY-minBorderY);
-
+        // 将待检测区域划分为格子的行列数 ， 几行几列
         const int nCols = width/W;
         const int nRows = height/W;
+        // 重新计算每个格子的大小 不大于的整数
         const int wCell = ceil(width/nCols);
         const int hCell = ceil(height/nRows);
-
+        // 在每个格子内进行fast特征检测
         for(int i=0; i<nRows; i++)
         {
-            const float iniY =minBorderY+i*hCell;
-            float maxY = iniY+hCell+6;
+            const float iniY =minBorderY+i*hCell;   // 定位某个格子的 初始Y坐标 
+            float maxY = iniY+hCell+6;              // 该格子的Y最大坐标
 
             if(iniY>=maxBorderY-3)
                 continue;
@@ -842,8 +886,8 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 
             for(int j=0; j<nCols; j++)
             {
-                const float iniX =minBorderX+j*wCell;
-                float maxX = iniX+wCell+6;
+                const float iniX =minBorderX+j*wCell;   // 定位某个格子的 初始X坐标 
+                float maxX = iniX+wCell+6;              // 该格子的Y最大坐标
                 if(iniX>=maxBorderX-6)
                     continue;
                 if(maxX>maxBorderX)
@@ -851,9 +895,11 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 
                 // FAST提取兴趣点, 自适应阈值
                 vector<cv::KeyPoint> vKeysCell;
+                // 重新调整mvImagePyramid[level]图像的范围 限定在某个格子范围
+                // FAST 角点检测 使用 opencv的函数，此时没有方向不变性
                 FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
                      vKeysCell,iniThFAST,true);
-
+                // 如果检测为空就降低阈值再进行检测
                 if(vKeysCell.empty())
                 {
                     FAST(mvImagePyramid[level].rowRange(iniY,maxY).colRange(iniX,maxX),
@@ -862,10 +908,11 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
 
                 if(!vKeysCell.empty())
                 {
+                    //如果检测不为空就将检测到的特征点放到vToDistributeKeys中
                     for(vector<cv::KeyPoint>::iterator vit=vKeysCell.begin(); vit!=vKeysCell.end();vit++)
                     {
-                        (*vit).pt.x+=j*wCell;
-                        (*vit).pt.y+=i*hCell;
+                        (*vit).pt.x+=j*wCell; // 为何是累加呢， 因为(*vit).pt.x 是格子内的 坐标 需要加上格子上的坐标
+                        (*vit).pt.y+=i*hCell; // 同上
                         vToDistributeKeys.push_back(*vit);
                     }
                 }
@@ -873,27 +920,27 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
             }
         }
 
-        vector<KeyPoint> & keypoints = allKeypoints[level];
+        vector<KeyPoint> & keypoints = allKeypoints[level]; //该层金字塔 需要所有的特征点上
         keypoints.reserve(nfeatures);
 
-        // 根据mnFeaturesPerLevel,即该层的兴趣点数,对特征点进行剔除
+        // 根据mnFeaturesPerLevel,即该层的兴趣点数,对特征点进行剔除 留下的特征的 保存在allKeypoints[level]
         keypoints = DistributeOctTree(vToDistributeKeys, minBorderX, maxBorderX,
                                       minBorderY, maxBorderY,mnFeaturesPerLevel[level], level);
-
+        //计算特征点Patch（邻域直径）的大小，根据每层的尺度的不同而不同 
         const int scaledPatchSize = PATCH_SIZE*mvScaleFactor[level];
 
         // Add border to coordinates and scale information
         const int nkps = keypoints.size();
         for(int i=0; i<nkps ; i++)
         {
-            keypoints[i].pt.x+=minBorderX;
+            keypoints[i].pt.x+=minBorderX; // 最终的 pt.x坐标
             keypoints[i].pt.y+=minBorderY;
-            keypoints[i].octave=level;
-            keypoints[i].size = scaledPatchSize;
+            keypoints[i].octave=level;      // 征点所在金字塔层
+            keypoints[i].size = scaledPatchSize; // 邻域直径，将来计算描述子时使用
         }
     }
 
-    // compute orientations
+    // compute orientations 上一步 四叉树结点筛选的特征点，计算其的方向
     for (int level = 0; level < nlevels; ++level)
         computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 }
