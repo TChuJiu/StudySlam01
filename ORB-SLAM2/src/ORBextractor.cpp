@@ -151,7 +151,7 @@ static void computeOrbDescriptor(const KeyPoint& kpt,
         t0 = GET_VALUE(14); t1 = GET_VALUE(15);
         val |= (t0 < t1) << 7;
 
-        desc[i] = (uchar)val; // 将要返回的二进制描述子 大小：8×32= 256 个二进制
+        desc[i] = (uchar)val; // 将要返回的二进制描述子 大小：32 字节 个二进制
     }
 
     #undef GET_VALUE
@@ -469,6 +469,7 @@ ORBextractor::ORBextractor(int _nfeatures, float _scaleFactor, int _nlevels,
     mnFeaturesPerLevel[nlevels-1] = std::max(nfeatures - sumFeatures, 0);
     // 复制训练的模板
     const int npoints = 512;
+    // 初始化中建立了 描述子的规则 pattern！！！！
     const Point* pattern0 = (const Point*)bit_pattern_31_;// 数组强制转换到 Point类型
     std::copy(pattern0, pattern0 + npoints, std::back_inserter(pattern));
 
@@ -1140,7 +1141,7 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         return;
 
     Mat image = _image.getMat();
-    assert(image.type() == CV_8UC1 );
+    assert(image.type() == CV_8UC1 ); // 灰度
 
     // Pre-compute the scale pyramid
     // 构建图像金字塔
@@ -1160,12 +1161,12 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
         _descriptors.release();
     else
     {
-        _descriptors.create(nkeypoints, 32, CV_8U);
-        descriptors = _descriptors.getMat();
+        _descriptors.create(nkeypoints, 32, CV_8U); 
+        descriptors = _descriptors.getMat(); // 设定描述子的大小 一行32列 × CV_8U = 32字节
     }
 
     _keypoints.clear();
-    _keypoints.reserve(nkeypoints);
+    _keypoints.reserve(nkeypoints); // nkeypoints += (int)allKeypoints[level].size(); 总大小
 
     int offset = 0;
     for (int level = 0; level < nlevels; ++level)
@@ -1177,16 +1178,18 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
             continue;
 
         // preprocess the resized image 对图像进行高斯模糊
+        //void cv::GaussianBlur(cv::InputArray src, cv::OutputArray dst, 
+        //cv::Size ksize, double sigmaX, double sigmaY = (0.0), int borderType = 4)
         Mat workingMat = mvImagePyramid[level].clone();
         GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
 
         // Compute the descriptors 计算描述子
-        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
+        Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);  // 
         computeDescriptors(workingMat, keypoints, desc, pattern);
 
         offset += nkeypointsLevel;
 
-        // Scale keypoint coordinates
+        // Scale keypoint coordinates放大 关键字坐标系
         if (level != 0)
         {
             float scale = mvScaleFactor[level]; //getScale(level, firstLevel, scaleFactor);
@@ -1195,7 +1198,8 @@ void ORBextractor::operator()( InputArray _image, InputArray _mask, vector<KeyPo
                 keypoint->pt *= scale;
         }
         // And add the keypoints to the output
-        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end());
+        //_keypoints 为 转换到原图上的 _keypoints坐标集合
+        _keypoints.insert(_keypoints.end(), keypoints.begin(), keypoints.end()); 
     }
 }
 
@@ -1207,17 +1211,23 @@ void ORBextractor::ComputePyramid(cv::Mat image)
 {
     for (int level = 0; level < nlevels; ++level)
     {
-        float scale = mvInvScaleFactor[level];
-        Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale));
-        Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2);
+        float scale = mvInvScaleFactor[level]; // 当前图层的 缩放因子
+        Size sz(cvRound((float)image.cols*scale), cvRound((float)image.rows*scale)); // 应缩放之后 该层的 目标大小
+        Size wholeSize(sz.width + EDGE_THRESHOLD*2, sz.height + EDGE_THRESHOLD*2); // 扩展区域，解决边界？
         Mat temp(wholeSize, image.type()), masktemp;
         mvImagePyramid[level] = temp(Rect(EDGE_THRESHOLD, EDGE_THRESHOLD, sz.width, sz.height));
 
         // Compute the resized image
+        // 构建非原图 图像金字塔模型
         if( level != 0 )
         {
+            // 调整大小，K 内参不变，线性插值
+            //void cv::resize(cv::InputArray src, cv::OutputArray dst, cv::Size dsize, 
+            //double fx = (0.0), double fy = (0.0), int interpolation = 1)
             resize(mvImagePyramid[level-1], mvImagePyramid[level], sz, 0, 0, cv::INTER_LINEAR);
-
+            //void copyMakeBorder(InputArray src, OutputArray dst,
+                                //  int top, int bottom, int left, int right,
+                                //  int borderType, const Scalar& value = Scalar() );
             copyMakeBorder(mvImagePyramid[level], temp, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD, EDGE_THRESHOLD,
                            BORDER_REFLECT_101+BORDER_ISOLATED);            
         }
