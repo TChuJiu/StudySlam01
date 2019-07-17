@@ -60,6 +60,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
  * @brief Bag of Words Representation
  *
  * 计算mBowVec，并且将描述子分散在第4层上，即mFeatVec记录了属于第i个node的ni个描述子
+ *                                  addFeature(NodeId id, unsigned int i_feature);
  * @see ProcessNewKeyFrame()
  */
 void KeyFrame::ComputeBoW()
@@ -69,7 +70,14 @@ void KeyFrame::ComputeBoW()
         vector<cv::Mat> vCurrentDesc = Converter::toDescriptorVector(mDescriptors);
         // Feature vector associate features with nodes in the 4th level (from leaves up)
         // We assume the vocabulary tree has 6 levels, change the 4 otherwise
-        mpORBvocabulary->transform(vCurrentDesc,mBowVec,mFeatVec,4);
+        //void ORB_SLAM2::ORBVocabulary::transform(const std::vector<...> &features, 
+        //      DBoW2::BowVector &v, DBoW2::FeatureVector &fv, int levelsup) const
+        //*将一组描述符转换为弓向量和特征向量
+        // @参数 (In)features
+        // @参数v（out）BoW向量
+        // @参数fv（out）节点特征向量和特征索引
+        // @param levelsup levels可在词汇树上查找节点索引 搜索深度？？？
+        mpORBvocabulary->transform(vCurrentDesc,mBowVec,mFeatVec,4); // SRJ???
     }
 }
 
@@ -82,7 +90,7 @@ void KeyFrame::SetPose(const cv::Mat &Tcw_)
     cv::Mat Rwc = Rcw.t();
     Ow = -Rwc*tcw;
 
-    Twc = cv::Mat::eye(4,4,Tcw.type());
+    Twc = cv::Mat::eye(4,4,Tcw.type()); // 用TcwMat的通道类型初始化矩阵
     Rwc.copyTo(Twc.rowRange(0,3).colRange(0,3));
     Ow.copyTo(Twc.rowRange(0,3).col(3));
     // center为相机坐标系（左目）下，立体相机中心的坐标
@@ -150,7 +158,7 @@ void KeyFrame::AddConnection(KeyFrame *pKF, const int &weight)
             return;
     }
 
-    UpdateBestCovisibles();
+    UpdateBestCovisibles();//按照权重对连接的关键帧进行排序,更新后的变量存储在mvpOrderedConnectedKeyFrames和mvOrderedWeights中
 }
 
 /**
@@ -169,12 +177,12 @@ void KeyFrame::UpdateBestCovisibles()
        vPairs.push_back(make_pair(mit->second,mit->first));
 
     // 按照权重进行排序
-    sort(vPairs.begin(),vPairs.end());
+    sort(vPairs.begin(),vPairs.end()); // 升序
     list<KeyFrame*> lKFs; // keyframe
     list<int> lWs; // weight
-    for(size_t i=0, iend=vPairs.size(); i<iend;i++)
+    for(size_t i=0, iend=vPairs.size(); i<iend;i++) // Map.size(): 返回map容器中的元素对数。
     {
-        lKFs.push_front(vPairs[i].second);
+        lKFs.push_front(vPairs[i].second); //放头部，降序
         lWs.push_front(vPairs[i].first);
     }
 
