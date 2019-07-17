@@ -50,7 +50,7 @@ KeyFrame::KeyFrame(Frame &F, Map *pMap, KeyFrameDatabase *pKFDB):
     {
         mGrid[i].resize(mnGridRows);
         for(int j=0; j<mnGridRows; j++)
-            mGrid[i][j] = F.mGrid[i][j];
+            mGrid[i][j] = F.mGrid[i][j]; // Frame
     }
 
     SetPose(F.mTcw);

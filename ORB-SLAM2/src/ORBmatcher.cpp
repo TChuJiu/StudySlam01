@@ -71,10 +71,12 @@ int ORBmatcher::SearchByProjection(Frame &F, const vector<MapPoint*> &vpMapPoint
         MapPoint* pMP = vpMapPoints[iMP];
 
         // 判断该点是否要投影
+        //在SearchLocalPoints()中已经将Local MapPoints
+        //重投影（isInFrustum()）到当前帧，并标记了这些点是否在当前帧的视野中即mbTrackInView         
         if(!pMP->mbTrackInView)
             continue;
 
-        if(pMP->isBad())
+        if(pMP->isBad())//如果质量不好不用
             continue;
             
         // 通过距离预测的金字塔层数，该层数相对于当前的帧

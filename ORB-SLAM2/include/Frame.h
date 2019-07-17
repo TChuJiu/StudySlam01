@@ -46,7 +46,7 @@ public:
     Frame();
 
     // Copy constructor.
-    Frame(const Frame &frame);
+    Frame(const Frame &frame); // 复制
 
     // Constructor for stereo cameras.
     Frame(const cv::Mat &imLeft, const cv::Mat &imRight, const double &timeStamp, ORBextractor* extractorLeft, ORBextractor* extractorRight, ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth);
@@ -80,7 +80,7 @@ public:
     }
 
     // Returns inverse of rotation
-    inline cv::Mat GetRotationInverse()
+    inline cv::Mat GetRotationInverse() // (Rcw)-1
 	{
         return mRwc.clone();
     }
@@ -91,22 +91,28 @@ public:
     bool isInFrustum(MapPoint* pMP, float viewingCosLimit);
 
     // Compute the cell of a keypoint (return false if outside the grid)
+    // 计算关键点的单元格（如果在网格之外，则返回false）
     bool PosInGrid(const cv::KeyPoint &kp, int &posX, int &posY);
 
     vector<size_t> GetFeaturesInArea(const float &x, const float  &y, const float  &r, const int minLevel=-1, const int maxLevel=-1) const;
 
     // Search a match for each keypoint in the left image to a keypoint in the right image.
     // If there is a match, depth is computed and the right coordinate associated to the left keypoint is stored.
+    // 搜索左图像中的每个关键点与右图像中的关键点的匹配。
+    // 如果匹配，则计算深度并存储与左关键点关联的右坐标。
     void ComputeStereoMatches();
 
     // Associate a "right" coordinate to a keypoint if there is valid depth in the depthmap.
+    // 如果depthmap中有有效深度，则将“right”坐标与关键点关联
     void ComputeStereoFromRGBD(const cv::Mat &imDepth);
 
     // Backprojects a keypoint (if stereo/depth info available) into 3D world coordinates.
+    //将关键点（如果有立体/深度信息）反投影到三维世界坐标中。
     cv::Mat UnprojectStereo(const int &i);
 
 public:
     // Vocabulary used for relocalization.
+    // 用于重新定位的词汇。
     ORBVocabulary* mpORBvocabulary;
 
     // Feature extractor. The right is used only in the stereo case.
@@ -123,17 +129,19 @@ public:
     static float cy;
     static float invfx;
     static float invfy;
-    cv::Mat mDistCoef;
+    cv::Mat mDistCoef; // 距离系数
 
     // Stereo baseline multiplied by fx.
-    float mbf;
+    float mbf; // 双目基线乘以fx。
 
     // Stereo baseline in meters.
-    float mb;
+    float mb; //立体声基线（米）。
 
     // Threshold close/far points. Close points are inserted from 1 view.
     // Far points are inserted as in the monocular case from 2 views.
-    float mThDepth;
+    //  阈值关闭/远点。从1个视图插入闭合点。
+    //  在2个视图中插入远点，如单眼病例中一样。
+    float mThDepth; // 阈值 近点/远点
 
     // Number of KeyPoints.
     int N; ///< KeyPoints数量
@@ -169,12 +177,12 @@ public:
 
     // Flag to identify outlier associations.
     // 观测不到Map中的3D点
-    std::vector<bool> mvbOutlier;
+    std::vector<bool> mvbOutlier; // 离群标识
 
     // Keypoints are assigned to cells in a grid to reduce matching complexity when projecting MapPoints.
     // 坐标乘以mfGridElementWidthInv和mfGridElementHeightInv就可以确定在哪个格子
-    static float mfGridElementWidthInv;
-    static float mfGridElementHeightInv;
+    static float mfGridElementWidthInv; // 网格元素宽度
+    static float mfGridElementHeightInv;// 网格元素高度
     // 每个格子分配的特征点数，将图像分成格子，保证提取的特征点比较均匀
     // FRAME_GRID_ROWS 48
     // FRAME_GRID_COLS 64
@@ -214,12 +222,17 @@ private:
     // Undistort keypoints given OpenCV distortion parameters.
     // Only for the RGB-D case. Stereo must be already rectified!
     // (called in the constructor).
-    void UndistortKeyPoints();
+    // 给定opencv失真参数，使关键点不失真。
+    // 仅适用于RGB-D案例。立体声必须已校正！
+    //（在构造函数中调用）。
+    void UndistortKeyPoints(); // 无失真关键点
 
     // Computes image bounds for the undistorted image (called in the constructor).
+    // 计算未变形图像的图像边界（在构造函数中调用）。
     void ComputeImageBounds(const cv::Mat &imLeft);
 
     // Assign keypoints to the grid for speed up feature matching (called in the constructor).
+    // 为网格分配关键点以进行加速功能匹配（在构造函数中调用）。
     void AssignFeaturesToGrid();
 
     // Rotation, translation and camera center

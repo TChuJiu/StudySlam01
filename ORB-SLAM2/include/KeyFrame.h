@@ -243,7 +243,7 @@ protected:
 
     Map* mpMap;
 
-    std::mutex mMutexPose;
+    std::mutex mMutexPose; // 多进程的互斥锁 直接操作 mutex，即直接调用 mutex 的 lock / unlock 函数
     std::mutex mMutexConnections;
     std::mutex mMutexFeatures;
 };

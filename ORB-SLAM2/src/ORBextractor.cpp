@@ -936,7 +936,7 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         {
             keypoints[i].pt.x+=minBorderX; // 最终的 pt.x坐标
             keypoints[i].pt.y+=minBorderY;
-            keypoints[i].octave=level;      // 征点所在金字塔层
+            keypoints[i].octave=level;      // 提取特征点所在金字塔层
             keypoints[i].size = scaledPatchSize; // 邻域直径，将来计算描述子时使用
         }
     }
