@@ -244,9 +244,12 @@ vector<KeyFrame*> KeyFrame::GetCovisiblesByWeight(const int &w)
 
     // http://www.cplusplus.com/reference/algorithm/upper_bound/
     // 从mvOrderedWeights找出第一个大于w的那个迭代器
-    // 这里应该使用lower_bound，因为lower_bound是返回小于等于，而upper_bound只能返回第一个大于的
+    // 这里应该使用lower_bound，因为lower_bound是返回小于等于，而upper_bound只能返回第一个大于的 (srj？？？ upper_bound是对的吗？)
+    // ForwardIterator upper_bound (ForwardIterator first, ForwardIterator last, const T& val, Compare comp);
+    // static bool weightComp( int a, int b)  return a>b;
+    // 接受两个参数的二进制函数（第一个是val，第二个是指向的类型ForwardIterator），并返回一个可转换为的值bool。返回的值表示第一个参数是否被认为是在第二个参数之前。
     vector<int>::iterator it = upper_bound(mvOrderedWeights.begin(),mvOrderedWeights.end(),w,KeyFrame::weightComp);
-    if(it==mvOrderedWeights.end() && *mvOrderedWeights.rbegin()<w)
+    if(it==mvOrderedWeights.end() && *mvOrderedWeights.rbegin()<w) // c.rbegin()  == c.end()
         return vector<KeyFrame*>();
     else
     {
@@ -264,7 +267,7 @@ int KeyFrame::GetWeight(KeyFrame *pKF)
 {
     unique_lock<mutex> lock(mMutexConnections);
     if(mConnectedKeyFrameWeights.count(pKF))
-        return mConnectedKeyFrameWeights[pKF];
+        return mConnectedKeyFrameWeights[pKF]; // key:value; 查找方法 value = map[key] 
     else
         return 0;
 }
@@ -309,7 +312,7 @@ set<MapPoint*> KeyFrame::GetMapPoints()
             continue;
         MapPoint* pMP = mvpMapPoints[i];
         if(!pMP->isBad())
-            s.insert(pMP);
+            s.insert(pMP); //insert() 用于向set集合中添加数据
     }
     return s;
 }
@@ -695,7 +698,7 @@ void KeyFrame::EraseConnection(KeyFrame* pKF)
     }
 
     if(bUpdate)
-        UpdateBestCovisibles();
+        UpdateBestCovisibles(); // 通过 mConnectedKeyFrameWeights 来维护 mvOrderedConnectedKF 和 mvOrderdWeights
 }
 
 // r为边长（半径）
@@ -729,7 +732,7 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
             const vector<size_t> vCell = mGrid[ix][iy];
             for(size_t j=0, jend=vCell.size(); j<jend; j++)
             {
-                const cv::KeyPoint &kpUn = mvKeysUn[vCell[j]];
+                const cv::KeyPoint &kpUn = mvKeysUn[vCell[j]];  // 使用校正过的左目关键点
                 const float distx = kpUn.pt.x-x;
                 const float disty = kpUn.pt.y-y;
 
@@ -744,7 +747,7 @@ vector<size_t> KeyFrame::GetFeaturesInArea(const float &x, const float &y, const
 
 bool KeyFrame::IsInImage(const float &x, const float &y) const
 {
-    return (x>=mnMinX && x<mnMaxX && y>=mnMinY && y<mnMaxY);
+    return (x>=mnMinX && x<mnMaxX && y>=mnMinY && y<mnMaxY); //简单判断（x，y）是不是在边界范围内
 }
 
 /**

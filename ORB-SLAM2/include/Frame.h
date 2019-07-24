@@ -135,7 +135,7 @@ public:
     float mbf; // 双目基线乘以fx。
 
     // Stereo baseline in meters.
-    float mb; //立体声基线（米）。
+    float mb; // 双目声基线（米）。
 
     // Threshold close/far points. Close points are inserted from 1 view.
     // Far points are inserted as in the monocular case from 2 views.
@@ -193,7 +193,7 @@ public:
 
     // Current and Next Frame id.
     static long unsigned int nNextId; ///< Next Frame id.
-    long unsigned int mnId; ///< Current Frame id.
+    long unsigned int mnId; ///< Current Frame id. 帧Id
 
     // Reference Keyframe.
     KeyFrame* mpReferenceKF;//指针，指向参考关键帧

@@ -41,12 +41,14 @@ class Frame;
 class MapPoint
 {
 public:
+    //参考帧是关键帧，该地图点将许多关键帧对应，建立关键帧之间的共视关系  
     MapPoint(const cv::Mat &Pos, KeyFrame* pRefKF, Map* pMap);
+     //参考帧是普通帧，该地图点只与普通帧有关
     MapPoint(const cv::Mat &Pos,  Map* pMap, Frame* pFrame, const int &idxF);
-
+    // 设置 或 获取 位姿
     void SetWorldPos(const cv::Mat &Pos);
     cv::Mat GetWorldPos();
-
+    //获得法线
     cv::Mat GetNormal();
     KeyFrame* GetReferenceKeyFrame();
 
@@ -134,7 +136,7 @@ protected:
 
     // Mean viewing direction
     // 该MapPoint平均观测方向
-    cv::Mat mNormalVector;
+    cv::Mat mNormalVector; // srj 什么是平均？
 
     // Best descriptor to fast matching
     // 每个3D点也有一个descriptor

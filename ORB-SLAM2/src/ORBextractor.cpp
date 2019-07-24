@@ -936,7 +936,11 @@ void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint> >& allKeypoin
         {
             keypoints[i].pt.x+=minBorderX; // 最终的 pt.x坐标
             keypoints[i].pt.y+=minBorderY;
-            keypoints[i].octave=level;      // 提取特征点所在金字塔层
+            keypoints[i].octave=level;      // 提取// 相对于关键帧的闭环检测DetectLoopCandidates，重定位检测中没法获得相连的关键帧
+    list<KeyFrame*> lKFsSharingWords;// 用于保存可能与F形成回环的候选帧（只要有相同的word，且不属于局部相连帧）
+// 相对于关键帧的闭环检测DetectLoopCandidates，重定位检测中没法获得相连的关键帧
+    list<KeyFrame*> lKFsSharingWords;// 用于保存可能与F形成回环的候选帧（只要有相同的word，且不属于局部相连帧）
+特征点所在金字塔层
             keypoints[i].size = scaledPatchSize; // 邻域直径，将来计算描述子时使用
         }
     }

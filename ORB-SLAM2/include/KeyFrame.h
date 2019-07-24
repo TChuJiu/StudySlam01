@@ -182,6 +182,7 @@ public:
     //BoW
     DBoW2::BowVector mBowVec; ///< Vector of words to represent images
     DBoW2::FeatureVector mFeatVec; ///< Vector of nodes with indexes of local features
+    //void addFeature(NodeId id, unsigned int i_feature);
 
     // Pose relative to parent (this is computed when bad flag is activated)
     cv::Mat mTcp;

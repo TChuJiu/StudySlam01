@@ -26,6 +26,8 @@
 namespace ORB_SLAM2
 {
 
+ // 地图点可以通过关键帧来构造，也可以通过普通帧构造，但是最终，必须和关键帧对应
+ // 通过对普通帧构造的地图点只是临时被Tracking用来追踪的
 long unsigned int MapPoint::nNextId=0;
 mutex MapPoint::mGlobalMutex;
 
@@ -38,6 +40,11 @@ mutex MapPoint::mGlobalMutex;
  * @param pRefKF KeyFrame
  * @param pMap   Map
  */
+//构造函数主要是突出地图点和关键帧之间的观测关系，参考关键帧是哪一帧，该地图点被哪些关键帧观测到
+//对于被观测到的特征点的index是什么
+//什么叫共视图（covisibility graph）,简单说来就是node是关键帧，每个node之间的权重就是两个关键帧
+//同时看到的特征点的数量，数量越大，权重值越高
+//参考帧是关键帧，该地图点将许多关键帧对应，建立关键帧之间的共视关系
 MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
     mnFirstKFid(pRefKF->mnId), mnFirstFrame(pRefKF->mnFrameId), nObs(0), mnTrackReferenceForFrame(0),
     mnLastFrameSeen(0), mnBALocalForKF(0), mnFuseCandidateForKF(0), mnLoopPointForKF(0), mnCorrectedByKF(0),
@@ -61,6 +68,7 @@ MapPoint::MapPoint(const cv::Mat &Pos, KeyFrame *pRefKF, Map* pMap):
  * @param pFrame Frame
  * @param idxF   MapPoint在Frame中的索引，即对应的特征点的编号
  */
+//参考帧是普通帧，该地图点只与普通帧有关
 MapPoint::MapPoint(const cv::Mat &Pos, Map* pMap, Frame* pFrame, const int &idxF):
     mnFirstKFid(-1), mnFirstFrame(pFrame->mnId), nObs(0), mnTrackReferenceForFrame(0), mnLastFrameSeen(0),
     mnBALocalForKF(0), mnFuseCandidateForKF(0),mnLoopPointForKF(0), mnCorrectedByKF(0),
