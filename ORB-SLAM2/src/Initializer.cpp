@@ -60,6 +60,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
     // Frame2 特征点
     mvKeys2 = CurrentFrame.mvKeysUn;
 
+    // vMatches12 记录RF帧1上的特征点匹配在CF帧2上特征点的序号 ？？SRJ
     // mvMatches12记录匹配上的特征点对
     mvMatches12.clear();
     mvMatches12.reserve(mvKeys2.size());
@@ -95,20 +96,21 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
 
     // Generate sets of 8 points for each RANSAC iteration
     // 步骤2：在所有匹配特征点对中随机选择8对匹配特征点为一组，共选择mMaxIterations组
+    // 各组之间可以有重复的序号 SRJ
     // 用于FindHomography和FindFundamental求解
     // mMaxIterations:200
     mvSets = vector< vector<size_t> >(mMaxIterations,vector<size_t>(8,0));
 
-    DUtils::Random::SeedRandOnce(0);
+    DUtils::Random::SeedRandOnce(0); // 仅在第一次调用此函数时将随机数种子设置为当前时间 SRJ
 
     for(int it=0; it<mMaxIterations; it++)
     {
-        vAvailableIndices = vAllIndices;
+        vAvailableIndices = vAllIndices; // 如果筛选的两组完全一样会怎样？？SRJ
 
         // Select a minimum set
         for(size_t j=0; j<8; j++)
         {
-            // 产生0到N-1的随机数
+            // 产生0到N-1的随机数  // static int RandomInt(int min, int max); SRJ
             int randi = DUtils::Random::RandomInt(0,vAvailableIndices.size()-1);
             // idx表示哪一个索引对应的特征点被选中
             int idx = vAvailableIndices[randi];
@@ -119,7 +121,7 @@ bool Initializer::Initialize(const Frame &CurrentFrame, const vector<int> &vMatc
             // randi对应的索引用最后一个元素替换，并删掉最后一个元素
             vAvailableIndices[randi] = vAvailableIndices.back();
             vAvailableIndices.pop_back();
-        }
+        } 
     }
 
     // Launch threads to compute in parallel a fundamental matrix and a homography
@@ -180,7 +182,7 @@ void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, c
     vector<cv::Point2f> vPn2i(8);
     cv::Mat H21i, H12i;
     // 每次RANSAC的MatchesInliers与得分
-    vector<bool> vbCurrentInliers(N,false);
+    vector<bool> vbCurrentInliers(N,false);  // 是否为当前帧内点向量 SRJ
     float currentScore;
 
     // Perform all RANSAC iterations and save the solution with highest score
@@ -196,15 +198,17 @@ void Initializer::FindHomography(vector<bool> &vbMatchesInliers, float &score, c
             vPn2i[j] = vPn2[mvMatches12[idx].second];
         }
 
-        cv::Mat Hn = ComputeH21(vPn1i,vPn2i);
+        cv::Mat Hn = ComputeH21(vPn1i,vPn2i); //SRJ
         // 恢复原始的均值和尺度
+        // T2*p2 = Hn*T1*p1 j解除归一化（P68）---SRJ
+        // p2 = T2inv*hn*T1 * p1
         H21i = T2inv*Hn*T1;
         H12i = H21i.inv();
 
         // 利用重投影误差为当次RANSAC的结果评分
         currentScore = CheckHomography(H21i, H12i, vbCurrentInliers, mSigma);
 
-        // 得到最优的vbMatchesInliers与score
+        // 寻找具有做大score的一组，得到最优的vbMatchesInliers与score
         if(currentScore>score)
         {
             H21 = H21i.clone();
@@ -250,8 +254,8 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
         {
             int idx = mvSets[it][j];
 
-            vPn1i[j] = vPn1[mvMatches12[idx].first];
-            vPn2i[j] = vPn2[mvMatches12[idx].second];
+            vPn1i[j] = vPn1[mvMatches12[idx].first]; // vPn1数据排布同mvKets1， 同参考帧的mvKeysUn  SRJ
+            vPn2i[j] = vPn2[mvMatches12[idx].second];// vPn2数据排布同mvKets2， 同当前帧的mvKeysUn  SRJ
         }
 
         cv::Mat Fn = ComputeF21(vPn1i,vPn2i);
@@ -261,7 +265,7 @@ void Initializer::FindFundamental(vector<bool> &vbMatchesInliers, float &score, 
         // 利用重投影误差为当次RANSAC的结果评分
         currentScore = CheckFundamental(F21i, vbCurrentInliers, mSigma);
 
-        if(currentScore>score)
+        if(currentScore>score)  // score 阈值
         {
             F21 = F21i.clone();
             vbMatchesInliers = vbCurrentInliers;
@@ -327,7 +331,9 @@ cv::Mat Initializer::ComputeH21(const vector<cv::Point2f> &vP1, const vector<cv:
     cv::Mat u,w,vt;
 
     cv::SVDecomp(A,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
-
+    // reshape(CN, ROWS)它既可以改变矩阵的通道数，又可以对矩阵元素进行序列化
+    //cn: 表示通道数(channels), 如果设为0，则表示保持通道数不变，否则则变为设置的通道数。
+    //rows: 表示矩阵行数。 如果设为0，则表示保持原有的行数不变，否则则变为设置的行数。//
     return vt.row(8).reshape(0, 3); // v的最后一列
 }
 
@@ -374,14 +380,14 @@ cv::Mat Initializer::ComputeF21(const vector<cv::Point2f> &vP1,const vector<cv::
 
     cv::SVDecomp(Fpre,w,u,vt,cv::SVD::MODIFY_A | cv::SVD::FULL_UV);
 
-    w.at<float>(2)=0; // 秩2约束，将第3个奇异值设为0
+    w.at<float>(2)=0; // 秩2约束，将第3个奇异值设为0  强制约束
 
     return  u*cv::Mat::diag(w)*vt;
 }
 
 /**
  * @brief 对给定的homography matrix打分
- * 
+ *  // sigma 误差的标准差
  * @see
  * - Author's paper - IV. AUTOMATIC MAP INITIALIZATION （2）
  * - Multiple View Geometry in Computer Vision - symmetric transfer errors: 4.2.2 Geometric distance
@@ -422,6 +428,8 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
     float score = 0;
 
     // 基于卡方检验计算出的阈值（假设测量有一个像素的偏差）
+    // Multiple View Geometry in Computer Vision(P75) 余维度为2 对应的 t^2 = 5.99*[(测量像素点标准方差)^2]  SRJ
+    // 协方差 = 测量像素点标准方差  SRJ
     const float th = 5.991;
 
     //信息矩阵，方差平方的倒数
@@ -450,10 +458,11 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
         const float u2in1 = (h11inv*u2+h12inv*v2+h13inv)*w2in1inv;
         const float v2in1 = (h21inv*u2+h22inv*v2+h23inv)*w2in1inv;
 
-        // 计算重投影误差
+        // 计算重投影误差  ---实际上是，计算单应点与对应点（u1）的距离 SRJ
         const float squareDist1 = (u1-u2in1)*(u1-u2in1)+(v1-v2in1)*(v1-v2in1);
 
         // 根据方差归一化误差
+        // 根据RANSAC算法，计算单应矩阵，其 d^2 < t^2时，内点可靠; {t^2 = 5.99*(方差)^2}
         const float chiSquare1 = squareDist1*invSigmaSquare;
 
         if(chiSquare1>th)
@@ -475,10 +484,10 @@ float Initializer::CheckHomography(const cv::Mat &H21, const cv::Mat &H12, vecto
         if(chiSquare2>th)
             bIn = false;
         else
-            score += th - chiSquare2;
+            score += th - chiSquare2; // 之所以不用 score += chiSquare2，是为了保证squareDist2 距离越小，得分（距离累加）越大  
 
         if(bIn)
-            vbMatchesInliers[i]=true;
+            vbMatchesInliers[i]=true;  // 该关键点是内点 SRJ
         else
             vbMatchesInliers[i]=false;
     }
@@ -531,8 +540,11 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
         const float v2 = kp2.pt.y;
 
         // Reprojection error in second image
-        // l2=F21x1=(a2,b2,c2)
+        // l2=F21x1=(a2,b2,c2) 即 a2*x + b2*y + c2 = 0
         // F21x1可以算出x1在图像中x2对应的线l
+        //             |f11 f12 f13|   |u1|
+        // |u2,v2,1| * |f21 f22 f23| * |v1| = num2 (理论上应该为0)  by SRJ
+        //             |f31 f32 f33|   |1 |
         const float a2 = f11*u1+f12*v1+f13;
         const float b2 = f21*u1+f22*v1+f23;
         const float c2 = f31*u1+f32*v1+f33;
@@ -565,7 +577,7 @@ float Initializer::CheckFundamental(const cv::Mat &F21, vector<bool> &vbMatchesI
         if(chiSquare2>th)
             bIn = false;
         else
-            score += thScore - chiSquare2;
+            score += thScore - chiSquare2; // 之所以使用5.991而不是3.841是为了分数上和H统一尺度 by SRJ
 
         if(bIn)
             vbMatchesInliers[i]=true;
@@ -618,7 +630,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     vector<cv::Point3f> vP3D1, vP3D2, vP3D3, vP3D4;
     vector<bool> vbTriangulated1,vbTriangulated2,vbTriangulated3, vbTriangulated4;
     float parallax1,parallax2, parallax3, parallax4;
-
+    // 检查4种情况
     int nGood1 = CheckRT(R1,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D1, 4.0*mSigma2, vbTriangulated1, parallax1);
     int nGood2 = CheckRT(R2,t1,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D2, 4.0*mSigma2, vbTriangulated2, parallax2);
     int nGood3 = CheckRT(R1,t2,mvKeys1,mvKeys2,mvMatches12,vbMatchesInliers,K, vP3D3, 4.0*mSigma2, vbTriangulated3, parallax3);
@@ -650,7 +662,7 @@ bool Initializer::ReconstructF(vector<bool> &vbMatchesInliers, cv::Mat &F21, cv:
     }
 
     // If best reconstruction has enough parallax initialize
-    // 比较大的视差角
+    // 比较大的视差角  具有正深度
     if(maxGood==nGood1)
     {
         if(parallax1>minParallax)
@@ -730,7 +742,7 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     cv::Mat U,w,Vt,V;
     cv::SVD::compute(A,w,U,Vt,cv::SVD::FULL_UV);
     V=Vt.t();
-
+    // 计算并返回行列式 
     float s = cv::determinant(U)*cv::determinant(Vt);
 
     float d1 = w.at<float>(0);
@@ -738,7 +750,7 @@ bool Initializer::ReconstructH(vector<bool> &vbMatchesInliers, cv::Mat &H21, cv:
     float d3 = w.at<float>(2);
 
     // SVD分解的正常情况是特征值降序排列
-    if(d1/d2<1.00001 || d2/d3<1.00001)
+    if(d1/d2<1.00001 || d2/d3<1.00001)  // 验证降序
     {
         return false;
     }
@@ -953,7 +965,7 @@ void Initializer::Triangulate(const cv::KeyPoint &kp1, const cv::KeyPoint &kp2, 
 }
 
 /**
- * ＠brief 归一化特征点到同一尺度（作为normalize DLT的输入）
+ * ＠brief 归一化特征点到同一尺度（作为normalize DLT的输入）  实际是标准化SRJ：先中心化 后标准化
  *
  * [x' y' 1]' = T * [x y 1]' \n
  * 归一化后x', y'的均值为0，sum(abs(x_i'-0))=1，sum(abs((y_i'-0))=1
@@ -982,7 +994,7 @@ void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2
     float meanDevX = 0;
     float meanDevY = 0;
 
-    // 将所有vKeys点减去中心坐标，使x坐标和y坐标均值分别为0
+    // 将所有vKeys点减去中心坐标，使x坐标和y坐标均值分别为0  // 中心化SRJ，均值为0
     for(int i=0; i<N; i++)
     {
         vNormalizedPoints[i].x = vKeys[i].pt.x - meanX;
@@ -998,7 +1010,7 @@ void Initializer::Normalize(const vector<cv::KeyPoint> &vKeys, vector<cv::Point2
     float sX = 1.0/meanDevX;
     float sY = 1.0/meanDevY;
 
-    // 将x坐标和y坐标分别进行尺度缩放，使得x坐标和y坐标的一阶绝对矩分别为1
+    // 将x坐标和y坐标分别进行尺度缩放，使得x坐标和y坐标的一阶绝对矩分别为1 // 标准化
     for(int i=0; i<N; i++)
     {
         vNormalizedPoints[i].x = vNormalizedPoints[i].x * sX;
@@ -1171,9 +1183,9 @@ void Initializer::DecomposeE(const cv::Mat &E, cv::Mat &R1, cv::Mat &R2, cv::Mat
     // 对 t 有归一化，但是这个地方并没有决定单目整个SLAM过程的尺度
     // 因为CreateInitialMapMonocular函数对3D点深度会缩放，然后反过来对 t 有改变
     u.col(2).copyTo(t);
-    t=t/cv::norm(t);
-
-    cv::Mat W(3,3,CV_32F,cv::Scalar(0));
+    t=t/cv::norm(t);    // t 为 U的最后一列 t^=U*Z*U^t
+                        // R = U*W*V^t
+    cv::Mat W(3,3,CV_32F,cv::Scalar(0)); // 计算W矩阵
     W.at<float>(0,1)=-1;
     W.at<float>(1,0)=1;
     W.at<float>(2,2)=1;
